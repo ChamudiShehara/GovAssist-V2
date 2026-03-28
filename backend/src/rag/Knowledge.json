@@ -16,23 +16,33 @@
       "Road is flooded and blocked"
     ]
   },
-  {
-    "department": "Health",
-    "description": "Responsible for hospitals, clinics, sanitation services, and public health safety.",
-    "keywords": ["hospital", "doctor", "medicine", "clinic", "disease", "emergency", "ward", "patient", "health", "medical", "nurse", "treatment", "ambulance", "pharmacy"],
-    "synonyms": ["rohale", "hospital eka", "doctor kenek naha", "රෝහල", "medical", "hospitalize", "hospitalization"],
-    "complaintExamples": [
-      "Hospital emergency ward overcrowded",
-      "No doctors available in clinic",
-      "Medicine shortage in hospital",
-      "Ambulance not responding to emergency",
-      "Clinic closed during working hours",
-      "Peoples case hospitalize problem",
-      "Hospital hygiene is very poor",
-      "Doctor is not attending patients properly",
-      "No medicine available in government hospital"
-    ]
-  },
+{
+  "department": "Health",
+  "description": "Responsible for hospitals, clinics, sanitation services, and public health safety.",
+  "keywords": [
+    "hospital", "doctor", "medicine", "clinic", "disease", "emergency", "ward", "patient", "health", "medical", "nurse", "treatment", "ambulance", "pharmacy",
+    "death", "dead", "accident", "injury", "fatal", "critical", "trauma", "emergency accident", "road accident", "serious injury", "casualty"
+  ],
+  "synonyms": [
+    "rohale", "hospital eka", "doctor kenek naha", "රෝහල", "medical", "hospitalize", "hospitalization",
+    "maranaya", "dead body", "accident", "hadisiya", "mruthyuwa", "injured", "accident case"
+  ],
+  "complaintExamples": [
+    "Hospital emergency ward overcrowded",
+    "No doctors available in clinic",
+    "Medicine shortage in hospital",
+    "Ambulance not responding to emergency",
+    "Clinic closed during working hours",
+    "Peoples case hospitalize problem",
+    "Hospital hygiene is very poor",
+    "Doctor is not attending patients properly",
+    "No medicine available in government hospital",
+    "Dead body not handled properly in hospital",
+    "Road accident victim not treated on time",
+    "Emergency unit delay caused death",
+    "No immediate response for accident case"
+  ]
+},
   {
     "department": "Environment & Public Nuisance",
     "description": "Handles noise pollution, air pollution, illegal burning, and public nuisance complaints.",
