@@ -1,7 +1,4 @@
 // backend/src/rag/buildIndex.js
-// Run from the BACKEND root: node src/rag/buildIndex.js
-// Re-run whenever you update knowledge.json
-
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -14,7 +11,6 @@ const indexPath = path.join(__dirname, "index.json");
 const OLLAMA_URL = "http://localhost:11434/api/embeddings";
 const EMBED_MODEL = "nomic-embed-text";
 
-// Inline embedding so buildIndex doesn't depend on embedder.js module resolution
 const getEmbedding = async (text) => {
   const response = await axios.post(OLLAMA_URL, {
     model: EMBED_MODEL,
@@ -45,7 +41,7 @@ const buildIndex = async () => {
         chunks.push({ text: doc, embedding });
         process.stdout.write(".");
       } catch (err) {
-        console.error(`\n⚠️  Failed to embed: "${doc.slice(0, 60)}..." — ${err.message}`);
+        console.error(`\n⚠️ Failed to embed: "${doc.slice(0, 60)}..." — ${err.message}`);
       }
     }
 

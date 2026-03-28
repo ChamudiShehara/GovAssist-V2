@@ -47,35 +47,35 @@ const CreateComplaint = () => {
     fetchData();
   }, [navigate]);
 
-  const handleSuggestDepartment = async () => {
-    if (!title.trim()) {
-      setSuggestionNote("Please enter a complaint title first.");
-      return;
+const handleSuggestDepartment = async () => {
+  if (!title.trim()) {
+    setSuggestionNote("Please enter a complaint title first.");
+    return;
+  }
+  setIsSuggesting(true);
+  setSuggestionNote("");
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      "http://localhost:5000/api/citizen/complaints/suggest-department",
+      { title },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const { suggestedDepartment, suggestedDepartmentId, message } = response.data;
+
+    if (suggestedDepartmentId) {
+      setDepartment(suggestedDepartmentId);
+      setSuggestionNote(`matched:${suggestedDepartment}`);
+    } else {
+      setDepartment(""); // reset
+      setSuggestionNote(`none:${message || "No suggestion found. Please select manually."}`);
     }
-    setIsSuggesting(true);
-    setSuggestionNote("");
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        "http://localhost:5000/api/citizen/complaints/suggest-department",
-        { title },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const { suggestedDepartment, suggestedDepartmentId } = response.data;
-      if (suggestedDepartmentId) {
-        setDepartment(suggestedDepartmentId);
-        setSuggestionNote(`matched:${suggestedDepartment}`);
-      } else if (suggestedDepartment) {
-        setSuggestionNote(`partial:${suggestedDepartment}`);
-      } else {
-        setSuggestionNote("none:");
-      }
-    } catch {
-      setSuggestionNote("error:");
-    } finally {
-      setIsSuggesting(false);
-    }
-  };
+  } catch {
+    setSuggestionNote("error: Could not get a suggestion. Please select manually.");
+  } finally {
+    setIsSuggesting(false);
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,19 +97,38 @@ const CreateComplaint = () => {
     }
   };
 
-  const getSuggestionDisplay = () => {
-    if (!suggestionNote) return null;
-    const [type, ...rest] = suggestionNote.split(":");
-    const msg = rest.join(":");
-    if (type === "matched")
-      return { style: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: "check", text: `AI matched: "${msg}"` };
-    if (type === "partial")
-      return { style: "bg-amber-50 text-amber-700 border-amber-200", icon: "warn", text: `AI suggested "${msg}" — select manually.` };
-    if (type === "none")
-      return { style: "bg-gray-50 text-gray-500 border-gray-200", icon: "info", text: "No suggestion found. Please select manually." };
-    return { style: "bg-red-50 text-red-600 border-red-200", icon: "error", text: "Could not get a suggestion. Please select manually." };
+const getSuggestionDisplay = () => {
+  if (!suggestionNote) return null;
+  const [type, ...rest] = suggestionNote.split(":");
+  const msg = rest.join(":");
+  
+  if (type === "matched")
+    return { 
+      style: "bg-emerald-50 text-emerald-700 border-emerald-200", 
+      icon: "check", 
+      text: `AI matched: "${msg}"` 
+    };
+  
+  if (type === "partial")
+    return { 
+      style: "bg-amber-50 text-amber-700 border-amber-200", 
+      icon: "warn", 
+      text: `AI suggested "${msg}" — select manually.` 
+    };
+  
+  if (type === "none")
+    return { 
+      style: "bg-red-50 text-red-700 border-red-200",  // <-- changed from gray to red
+      icon: "info", 
+      text: "No suggestion found. Please select manually." 
+    };
+  
+  return { 
+    style: "bg-red-50 text-red-600 border-red-200", 
+    icon: "error", 
+    text: "Could not get a suggestion. Please select manually." 
   };
-
+};
   const suggestion = getSuggestionDisplay();
 
   const inputBase =
