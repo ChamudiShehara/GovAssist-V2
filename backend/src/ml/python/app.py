@@ -10,7 +10,7 @@ CORS(app)
 print("[ML Service] Loading model on startup...")
 pipeline = load_or_train()
 print("[ML Service] Ready.")
-
+#health check route
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({
@@ -18,31 +18,31 @@ def health():
         "service": "complaint-ml-scorer",
         "scoring": "votes + priority_bonus (HIGH=4, MEDIUM=2, LOW=0)"
     })
-
+#This section starts the complaint scoring process.
 @app.route("/score", methods=["POST"])
 def score():
     global pipeline
     try:
         data       = request.get_json()
-        complaints = data.get("complaints", [])
+        complaints = data.get("complaints", [])#gets complaint data
 
         if not complaints:
             return jsonify({"error": "No complaints provided"}), 400
-
+#sends the complaint data to the ML model.
         scores = predict_scores(pipeline, complaints)
 
-        scored = []
+        scored = []#take each complaint and attach its urgency score
         for complaint, s in zip(complaints, scores):
-            scored.append({**complaint, "_urgencyScore": round(float(s), 4)})
-
+            scored.append({**complaint, "_urgencyScore": round(float(s), 4)})#attaches score to each complaint
+#Most urgent complaints go to the top.
         scored.sort(key=lambda c: c["_urgencyScore"], reverse=True)
-
+#after soting its adds position number
         for i, c in enumerate(scored):
             c["_rank"] = i + 1
 
         print(f"[ML] Scored {len(scored)} complaints")
         print(f"[ML] Top 3: {[(c.get('title','?')[:30], c['_urgencyScore']) for c in scored[:3]]}")
-
+#Return final result
         return jsonify({
             "scored": scored,
             "model_info": {
@@ -52,11 +52,11 @@ def score():
                 "n_complaints": len(scored),
             }
         })
-
+#eror handling
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
+#retrain model
 @app.route("/retrain", methods=["POST"])
 def retrain():
     global pipeline
@@ -69,7 +69,7 @@ def retrain():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
+#run the app
 if __name__ == "__main__":
     print("[ML Service] Starting on http://localhost:5001")
     app.run(port=5001, debug=False)

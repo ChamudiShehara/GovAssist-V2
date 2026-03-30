@@ -19,7 +19,7 @@ PRIORITY_BONUS = {"HIGH": 4, "MEDIUM": 2, "LOW": 0}
 def compute_raw_score(votes: int, priority: str) -> float:
     return float(votes) + float(PRIORITY_BONUS.get(priority, 0))
 
-# ── Extract single feature: raw_score ─────────────────────────────────────────
+# ── This function changes each complaint into one ML input number: ─────────────────────────────────────────
 
 def extract_features(complaints: list[dict]) -> np.ndarray:
     """
@@ -34,7 +34,7 @@ def extract_features(complaints: list[dict]) -> np.ndarray:
         rows.append([raw])
     return np.array(rows, dtype=float)
 
-# ── Extract features + labels from CSV ────────────────────────────────────────
+# ── This function prepares the training dataset from the CSV file. ────────────────────────────────────────
 
 def extract_features_from_csv(df: pd.DataFrame):
     """
@@ -49,7 +49,7 @@ def extract_features_from_csv(df: pd.DataFrame):
         rows.append([raw])
 
     X = np.array(rows, dtype=float)
-    y = df["urgency_score"].astype(float).values
+    y = df["urgency_score"].astype(float).values#urgency_score column from the dataset
     return X, y
 
 # ── Build pipeline ─────────────────────────────────────────────────────────────
