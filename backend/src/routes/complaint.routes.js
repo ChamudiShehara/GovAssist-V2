@@ -6,6 +6,7 @@ import {
   updateComplaintStatus,
   getComplaintsByCitizen,
   getComplaintsByDepartment,
+  getComplaintById,
   voteComplaint,  // Import voteComplaint function
   suggestDepartment,  // Import suggestDepartment function
 } from "../controllers/complaint.controller.js"; // Import all controllers
@@ -18,6 +19,8 @@ router.post("/add", authMiddleware, addComplaint);
 
 // Route for fetching complaints of the authenticated citizen
 router.get("/", authMiddleware, getComplaintsByCitizen);
+
+router.get("/:id", authMiddleware, getComplaintById); 
 
 // Route for deleting a complaint
 router.delete("/:id", authMiddleware, deleteComplaint);

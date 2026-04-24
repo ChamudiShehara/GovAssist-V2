@@ -1,5 +1,5 @@
 // pages/minister/MinisterComplaintsPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
 const STATUS_TABS = ["ALL", "PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"];
@@ -25,17 +25,61 @@ const priorityConfig = {
   LOW:    "bg-gray-100 text-gray-500 border border-gray-200",
 };
 
+// ── Same scoring weights used in citizen controller ──────────────────────────
+const SCORING_WEIGHTS = { votes: 0.60, priority: 0.40 };
+
+const PRIORITY_SCORE = { HIGH: 1.0, MEDIUM: 0.5, LOW: 0.0 };
+
+/**
+ * Replicates the ML urgency score from the citizen backend.
+ * score = (normalised_votes × 0.60) + (priority_score × 0.40)
+ */
+function computeUrgencyScore(complaint, maxVotes) {
+  const voteCount     = complaint.votes?.length ?? 0;
+  const normVotes     = maxVotes > 0 ? voteCount / maxVotes : 0;
+  const priorityScore = PRIORITY_SCORE[complaint.priority] ?? 0;
+  return normVotes * SCORING_WEIGHTS.votes + priorityScore * SCORING_WEIGHTS.priority;
+}
+
+function getRankStyle(rank) {
+  if (rank === 1) return "bg-red-100 text-red-600 border-red-200";
+  if (rank === 2) return "bg-amber-100 text-amber-600 border-amber-200";
+  if (rank === 3) return "bg-blue-100 text-blue-600 border-blue-200";
+  return "bg-gray-100 text-gray-500 border-gray-200";
+}
+
+function getUrgencyColor(score) {
+  if (score >= 0.7) return "bg-red-500";
+  if (score >= 0.4) return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+const UrgencyBar = ({ score }) => {
+  const pct = Math.round((score ?? 0) * 100);
+  return (
+    <div className="flex items-center gap-2 flex-1">
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${getUrgencyColor(score ?? 0)}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs text-gray-400 w-8 text-right tabular-nums">{pct}%</span>
+    </div>
+  );
+};
+
 export default function MinisterComplaintsPage() {
-  const [complaints, setComplaints]           = useState([]);
-  const [activeTab, setActiveTab]             = useState("ALL");
-  const [loading, setLoading]                 = useState(true);
+  const [complaints, setComplaints]               = useState([]);
+  const [activeTab, setActiveTab]                 = useState("ALL");
+  const [loading, setLoading]                     = useState(true);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [agents, setAgents]                   = useState([]);
-  const [selectedAgent, setSelectedAgent]     = useState("");
-  const [assigning, setAssigning]             = useState(false);
-  const [modalOpen, setModalOpen]             = useState(false);
-  const [assignError, setAssignError]         = useState("");
-  const [updateError, setUpdateError]         = useState("");
+  const [agents, setAgents]                       = useState([]);
+  const [selectedAgent, setSelectedAgent]         = useState("");
+  const [assigning, setAssigning]                 = useState(false);
+  const [modalOpen, setModalOpen]                 = useState(false);
+  const [assignError, setAssignError]             = useState("");
+  const [updateError, setUpdateError]             = useState("");
 
   const token = localStorage.getItem("token");
 
@@ -55,6 +99,19 @@ export default function MinisterComplaintsPage() {
   };
 
   useEffect(() => { fetchComplaints(activeTab); }, [activeTab]);
+
+  // ── Sort complaints by urgency score (same algorithm as citizen controller) ─
+  const rankedComplaints = useMemo(() => {
+    if (!complaints.length) return [];
+    const maxVotes = Math.max(...complaints.map(c => c.votes?.length ?? 0), 1);
+    return complaints
+      .map(c => ({
+        ...c,
+        _urgencyScore: computeUrgencyScore(c, maxVotes),
+      }))
+      .sort((a, b) => b._urgencyScore - a._urgencyScore)
+      .map((c, i) => ({ ...c, _rank: i + 1 }));
+  }, [complaints]);
 
   const openAssignModal = async (complaint) => {
     setSelectedComplaint(complaint);
@@ -110,10 +167,19 @@ export default function MinisterComplaintsPage() {
           <p className="text-blue-300 text-sm font-medium uppercase tracking-widest mb-1">
             Minister Portal
           </p>
-          <h1 className="text-2xl font-bold text-white">Department Complaints</h1>
-          <p className="text-blue-200 text-sm mt-1">
-            Review complaints in your department and assign field agents for resolution.
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Department Complaints</h1>
+              <p className="text-blue-200 text-sm mt-1">
+                Complaints ranked by ML urgency score — highest urgency first.
+              </p>
+            </div>
+            {!loading && rankedComplaints.length > 0 && (
+              <span className="shrink-0 text-xs font-medium bg-white/10 border border-white/20 text-white px-3 py-1.5 rounded-full">
+                {rankedComplaints.length} complaint{rankedComplaints.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -147,16 +213,49 @@ export default function MinisterComplaintsPage() {
           ))}
         </div>
 
+        {/* ML Info Banner */}
+        {!loading && rankedComplaints.length > 0 && (
+          <div className="mb-6 bg-white border border-blue-100 rounded-xl px-5 py-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">ML Urgency Ranking</p>
+                <p className="text-xs text-gray-500">Scoring weights applied to this ranking</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(SCORING_WEIGHTS).map(([key, val]) => (
+                <div key={key} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-center">
+                  <p className="text-sm font-bold text-[#1a3a6b]">{Math.round(val * 100)}%</p>
+                  <p className="text-xs text-gray-500 capitalize mt-0.5">{key}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Complaints List */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <svg className="w-6 h-6 animate-spin text-[#1a3a6b]" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <span className="ml-3 text-sm text-gray-500">Loading complaints...</span>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-6 h-6 rounded-full bg-gray-100" />
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full" />
+                  <div className="w-8 h-2 bg-gray-100 rounded-full" />
+                </div>
+                <div className="h-4 bg-gray-100 rounded w-2/3 mb-3" />
+                <div className="h-3 bg-gray-100 rounded w-full mb-2" />
+                <div className="h-3 bg-gray-100 rounded w-4/5" />
+              </div>
+            ))}
           </div>
-        ) : complaints.length === 0 ? (
+        ) : rankedComplaints.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
             <svg className="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -168,18 +267,28 @@ export default function MinisterComplaintsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {complaints.map(complaint => {
-              const status   = statusConfig[complaint.status] || statusConfig.PENDING;
-              const priority = priorityConfig[complaint.priority] || priorityConfig.LOW;
+          <div className="space-y-4">
+            {rankedComplaints.map((complaint) => {
+              const status      = statusConfig[complaint.status] || statusConfig.PENDING;
+              const priority    = priorityConfig[complaint.priority] || priorityConfig.LOW;
+              const rank        = complaint._rank;
+              const rankStyle   = getRankStyle(rank);
+              const urgency     = complaint._urgencyScore ?? 0;
+              const voteCount   = complaint.votes?.length ?? 0;
 
               return (
                 <div
                   key={complaint._id}
                   className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-sm transition-shadow duration-150"
                 >
-                  {/* Top status accent */}
-                  <div className={`h-0.5 ${status.dot}`} />
+                  {/* Rank + Urgency bar */}
+                  <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-gray-100">
+                    <span className={`text-xs font-bold w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${rankStyle}`}>
+                      #{rank}
+                    </span>
+                    <UrgencyBar score={urgency} />
+                    <span className="text-xs text-gray-400 shrink-0">Urgency</span>
+                  </div>
 
                   <div className="p-5">
                     {/* Header row */}
@@ -249,28 +358,45 @@ export default function MinisterComplaintsPage() {
 
                     {/* Footer */}
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {new Date(complaint.createdAt).toLocaleDateString('en-GB', {
-                          day: '2-digit', month: 'short', year: 'numeric'
-                        })}
-                      </span>
-
-                      {complaint.status === "PENDING" && (
-                        <button
-                          onClick={() => openAssignModal(complaint)}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors flex items-center gap-1.5"
-                        >
+                      <div className="flex items-center gap-3">
+                        {/* Vote count (read-only for minister) */}
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
-                          {complaint.assignedAgent ? "Reassign Agent" : "Assign Agent"}
-                        </button>
-                      )}
+                          {voteCount} vote{voteCount !== 1 ? "s" : ""}
+                        </span>
+
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {new Date(complaint.createdAt).toLocaleDateString('en-GB', {
+                            day: '2-digit', month: 'short', year: 'numeric'
+                          })}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {/* Raw urgency score */}
+                        <span className="text-xs text-gray-300 tabular-nums">
+                          score: {urgency.toFixed(3)}
+                        </span>
+
+                        {complaint.status === "PENDING" && (
+                          <button
+                            onClick={() => openAssignModal(complaint)}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {complaint.assignedAgent ? "Reassign Agent" : "Assign Agent"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -391,4 +517,3 @@ export default function MinisterComplaintsPage() {
     </div>
   );
 }
-

@@ -24,6 +24,7 @@ import CitizenEntries from './pages/citizen/CitizenEntries';  // Import the Citi
 import AgentComplaintsPage from './pages/agent/AgentComplaintsPage';
 import MinisterComplaintsPage   from './pages/minister/MinisterComplaintsPage';
 import MinisterDepartmentPage   from './pages/minister/MinisterDepartmentPage';
+import ComplaintDetails from './pages/citizen/ComplaintDetails';
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
         <Route path="/citizen/departments" element={<CitizenDepartments />} /> {/* Route for CitizenDepartments page */}
         <Route path="/citizen/departments/:departmentId" element={<DepartmentContent />} /> {/* Route for Department Content */}
         <Route path="/citizen/entries" element={<CitizenEntries />} /> {/* Route for Citizen Entries Page */}
+        <Route path="/citizen/complaint/:complaintId" element={<ComplaintDetails />} /> {/* Route for Complaint Details Page */}
 
         {/* Minister Routes */}
         <Route path="/minister/login" element={<MinisterLoginPage />} />  {/* Minister login page */}

@@ -226,3 +226,24 @@ export const voteComplaint = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
+export const getComplaintById = async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id)
+      .populate("department", "name")
+      .populate("assignedAgent", "name email")
+      .exec();
+ 
+    if (!complaint)
+      return res.status(404).json({ error: "Complaint not found" });
+ 
+    // Only allow the citizen who owns the complaint to view it
+    if (complaint.citizen.toString() !== req.user._id.toString())
+      return res.status(403).json({ error: "Access denied" });
+ 
+    res.json(complaint);
+  } catch (error) {
+    console.error("Error fetching complaint by ID:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};

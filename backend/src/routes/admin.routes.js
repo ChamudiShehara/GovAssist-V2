@@ -5,6 +5,8 @@ import { getDepartments, createDepartment } from "../controllers/department.cont
 import authMiddleware from "../middlewares/auth.middleware.js";
 import { registerAdminValidation, validate } from "../middlewares/validate.middleware.js";
 import { registerAgent, loginAgent } from "../controllers/agent.controller.js";
+import Minister from "../models/Minister.js";
+import Agent    from "../models/Agent.js";
 
 const router = express.Router();
 
@@ -19,6 +21,16 @@ router.post("/login-agent", loginAgent);
 // ✅ Single correct profile route
 router.get("/profile", authMiddleware, (req, res) => {
   res.json(req.user);
+});
+
+router.get("/ministers", authMiddleware, async (req, res) => {
+  const ministers = await Minister.find().populate("department", "name").select("-password");
+  res.json(ministers);
+});
+
+router.get("/agents", authMiddleware, async (req, res) => {
+  const agents = await Agent.find().populate("department", "name").select("-password");
+  res.json(agents);
 });
 
 export default router;

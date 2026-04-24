@@ -17,6 +17,7 @@ const CreateComplaint = () => {
   const [citizenEmail, setCitizenEmail] = useState("");
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestionNote, setSuggestionNote] = useState("");
+  const [departmentLocked, setDepartmentLocked] = useState(false);
   const [submitting, setSubmitting]     = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const navigate = useNavigate();
@@ -47,35 +48,38 @@ const CreateComplaint = () => {
     fetchData();
   }, [navigate]);
 
-const handleSuggestDepartment = async () => {
-  if (!title.trim()) {
-    setSuggestionNote("Please enter a complaint title first.");
-    return;
-  }
-  setIsSuggesting(true);
-  setSuggestionNote("");
-  try {
-    const token = localStorage.getItem("token");
-    const response = await axios.post(
-      "http://localhost:5000/api/citizen/complaints/suggest-department",
-      { title },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    const { suggestedDepartment, suggestedDepartmentId, message } = response.data;
-
-    if (suggestedDepartmentId) {
-      setDepartment(suggestedDepartmentId);
-      setSuggestionNote(`matched:${suggestedDepartment}`);
-    } else {
-      setDepartment(""); // reset
-      setSuggestionNote(`none:${message || "No suggestion found. Please select manually."}`);
+  const handleSuggestDepartment = async () => {
+    if (!title.trim()) {
+      setSuggestionNote("Please enter a complaint title first.");
+      return;
     }
-  } catch {
-    setSuggestionNote("error: Could not get a suggestion. Please select manually.");
-  } finally {
-    setIsSuggesting(false);
-  }
-};
+    setIsSuggesting(true);
+    setSuggestionNote("");
+    setDepartmentLocked(false);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.post(
+        "http://localhost:5000/api/citizen/complaints/suggest-department",
+        { title },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const { suggestedDepartment, suggestedDepartmentId, message } = response.data;
+
+      if (suggestedDepartmentId) {
+        setDepartment(suggestedDepartmentId);
+        setDepartmentLocked(true);
+        setSuggestionNote(`matched:${suggestedDepartment}`);
+      } else {
+        setDepartment("");
+        setDepartmentLocked(false);
+        setSuggestionNote(`none:${message || "No suggestion found. Please select manually."}`);
+      }
+    } catch {
+      setSuggestionNote("error: Could not get a suggestion. Please select manually.");
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,39 +101,44 @@ const handleSuggestDepartment = async () => {
     }
   };
 
-const getSuggestionDisplay = () => {
-  if (!suggestionNote) return null;
-  const [type, ...rest] = suggestionNote.split(":");
-  const msg = rest.join(":");
-  
-  if (type === "matched")
-    return { 
-      style: "bg-emerald-50 text-emerald-700 border-emerald-200", 
-      icon: "check", 
-      text: `AI matched: "${msg}"` 
+  const getSuggestionDisplay = () => {
+    if (!suggestionNote) return null;
+    const [type, ...rest] = suggestionNote.split(":");
+    const msg = rest.join(":");
+
+    if (type === "matched")
+      return {
+        style: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        icon: "check",
+        text: `AI matched: "${msg}"`,
+      };
+
+    if (type === "partial")
+      return {
+        style: "bg-amber-50 text-amber-700 border-amber-200",
+        icon: "warn",
+        text: `AI suggested "${msg}" — select manually.`,
+      };
+
+    if (type === "none")
+      return {
+        style: "bg-red-50 text-red-700 border-red-200",
+        icon: "info",
+        text: "No suggestion found. Please select manually.",
+      };
+
+    return {
+      style: "bg-red-50 text-red-600 border-red-200",
+      icon: "error",
+      text: "Could not get a suggestion. Please select manually.",
     };
-  
-  if (type === "partial")
-    return { 
-      style: "bg-amber-50 text-amber-700 border-amber-200", 
-      icon: "warn", 
-      text: `AI suggested "${msg}" — select manually.` 
-    };
-  
-  if (type === "none")
-    return { 
-      style: "bg-red-50 text-red-700 border-red-200",  // <-- changed from gray to red
-      icon: "info", 
-      text: "No suggestion found. Please select manually." 
-    };
-  
-  return { 
-    style: "bg-red-50 text-red-600 border-red-200", 
-    icon: "error", 
-    text: "Could not get a suggestion. Please select manually." 
   };
-};
+
   const suggestion = getSuggestionDisplay();
+
+  const lockedDepartmentName = departmentLocked
+    ? departments.find((d) => d._id === department)?.name ?? ""
+    : "";
 
   const inputBase =
     "w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1a3a6b]/20 focus:border-[#1a3a6b] transition-all text-gray-800 placeholder-gray-400";
@@ -194,7 +203,7 @@ const getSuggestionDisplay = () => {
                       className={inputBase}
                       placeholder="e.g. Road damage near school, Water supply issue..."
                       value={title}
-                      onChange={(e) => { setTitle(e.target.value); setSuggestionNote(""); }}
+                      onChange={(e) => { setTitle(e.target.value); setSuggestionNote(""); setDepartmentLocked(false); }}
                       required
                     />
                   </div>
@@ -227,7 +236,7 @@ const getSuggestionDisplay = () => {
                       </button>
                     </div>
 
-                    {/* Suggestion result — visible right here */}
+                    {/* Suggestion result */}
                     {suggestion ? (
                       <div className={`flex items-start gap-2 text-xs px-3 py-2 rounded-lg border ${suggestion.style}`}>
                         {suggestion.icon === "check" && (
@@ -341,25 +350,56 @@ const getSuggestionDisplay = () => {
                   <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                     Assign to Department <span className="text-red-400">*</span>
                   </label>
-                  <select
-                    className={`${inputBase} ${department ? "border-emerald-300 bg-emerald-50 focus:border-emerald-400 focus:ring-emerald-200/50" : ""}`}
-                    value={department}
-                    onChange={(e) => { setDepartment(e.target.value); setSuggestionNote(""); }}
-                    required
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map((dept) => (
-                      <option key={dept._id} value={dept._id}>{dept.name}</option>
-                    ))}
-                  </select>
 
-                  {department && (
-                    <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Department selected
-                    </p>
+                  {departmentLocked ? (
+                    /* ── Locked: read-only pill + manual override button ── */
+                    <div>
+                      <div className="flex items-center gap-2 w-full px-3 py-2.5 text-sm border border-emerald-300 rounded-lg bg-emerald-50 text-emerald-800">
+                        <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="flex-1 font-medium truncate">{lockedDepartmentName}</span>
+                        <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDepartmentLocked(false)}
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-[#1a3a6b] border border-[#1a3a6b]/25 hover:border-[#1a3a6b]/50 hover:bg-[#1a3a6b]/[0.04] bg-white rounded-lg py-2 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
+                        </svg>
+                        Select Department Manually
+                      </button>
+                    </div>
+                  ) : (
+                    /* ── Editable: dropdown ── */
+                    <>
+                      <select
+                        className={`${inputBase} ${department ? "border-emerald-300 bg-emerald-50 focus:border-emerald-400 focus:ring-emerald-200/50" : ""}`}
+                        value={department}
+                        onChange={(e) => { setDepartment(e.target.value); setSuggestionNote(""); }}
+                        required
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept._id} value={dept._id}>{dept.name}</option>
+                        ))}
+                      </select>
+
+                      {department && (
+                        <p className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Department selected
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
